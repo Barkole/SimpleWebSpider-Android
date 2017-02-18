@@ -15,22 +15,31 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 public class MainActivity extends Activity implements OnClickListener {
 
 	private LinearLayout crawlingInfo;
 	private Button startButton;
 	private EditText urlInputView;
+	private EditText queueSizeInputView;
+	private EditText resetTimeInputView;
+	private EditText throttleInputView;
 	private TextView progressText;
 
 	// WebCrawler object will be used to start crawling on root Url
 	private WebCrawler crawler;
 	// count variable for url crawled so far
-	int crawledUrlCount;
+	final private AtomicLong crawledUrlCount = new AtomicLong();
 	// state variable to check crawling status
-	boolean crawlingRunning;
+	private volatile boolean crawlingRunning;
 	// For sending message to Handler in order to stop crawling after 60000 ms
 	private static final int MSG_STOP_CRAWLING = 111;
-	private static final int CRAWLING_RUNNING_TIME = 60000;
+	private static final long HOUR_IN_MS = 60*60*1_000;
+	private static final long DEFAULT_RESET_TIME = 24*HOUR_IN_MS;
+	private static final int DEFAULT_QUEUE_SIZE = 1_000;
+	private static final int DEFAULT_THROTTLE = 10;
+
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +49,9 @@ public class MainActivity extends Activity implements OnClickListener {
 		crawlingInfo = (LinearLayout) findViewById(R.id.crawlingInfo);
 		startButton = (Button) findViewById(R.id.start);
 		urlInputView = (EditText) findViewById(R.id.webUrl);
+		queueSizeInputView = (EditText) findViewById(R.id.queueSize);
+		resetTimeInputView = (EditText) findViewById(R.id.resetTime);
+		throttleInputView = (EditText) findViewById(R.id.throttle);
 		progressText = (TextView) findViewById(R.id.progressText);
 
 		crawler = new WebCrawler(this, mCallback);
@@ -51,21 +63,20 @@ public class MainActivity extends Activity implements OnClickListener {
 	private WebCrawler.CrawlingCallback mCallback = new WebCrawler.CrawlingCallback() {
 
 		@Override
-		public void onPageCrawlingCompleted() {
-			crawledUrlCount++;
+		public void onPageCrawlingCompleted(final String url) {
+			final long count = crawledUrlCount.incrementAndGet();
 			progressText.post(new Runnable() {
 
 				@Override
 				public void run() {
-					progressText.setText(crawledUrlCount
-							+ " pages crawled so far!!");
+					progressText.setText(String.format("%s pages\n %s", count, url));
 
 				}
 			});
 		}
 
 		@Override
-		public void onPageCrawlingFailed(String Url, int errorCode) {
+		public void onPageCrawlingFailed(String url, int errorCode) {
 			// TODO Auto-generated method stub
 
 		}
@@ -85,32 +96,89 @@ public class MainActivity extends Activity implements OnClickListener {
 		int viewId = v.getId();
 		switch (viewId) {
 		case R.id.start:
-			String webUrl = urlInputView.getText().toString();
-			if (TextUtils.isEmpty(webUrl)) {
-				Toast.makeText(getApplicationContext(), "Please input web Url",
-						Toast.LENGTH_SHORT).show();
+//			String webUrl = urlInputView.getText().toString();
+//			if (TextUtils.isEmpty(webUrl)) {
+//				Toast.makeText(getApplicationContext(), "Please input web Url",
+//						Toast.LENGTH_SHORT).show();
+//			} else {
+			if (crawlingRunning) {
+				stopCrawling();
 			} else {
-				crawlingRunning = true;
-				crawler.startCrawlerTask(webUrl, true);
-				startButton.setEnabled(false);
-				crawlingInfo.setVisibility(View.VISIBLE);
-				// Send delayed message to handler for stopping crawling
-				handler.sendEmptyMessageDelayed(MSG_STOP_CRAWLING,
-						CRAWLING_RUNNING_TIME);
+				startCrawling();
 			}
+//			}
 			break;
-		case R.id.stop:
+//		case R.id.stop:
 			// remove any scheduled messages if user stopped crawling by
 			// clicking stop button
-			handler.removeMessages(MSG_STOP_CRAWLING);
-			stopCrawling();
-			break;
+			//handler.removeMessages(MSG_STOP_CRAWLING);
+//			stopCrawling();
+//			break;
+		}
+	}
+
+	private void startCrawling() {
+		if (!crawlingRunning) {
+			String webUrl = urlInputView.getText().toString();
+			if (TextUtils.isEmpty(webUrl)) {
+				webUrl = null;
+			}
+
+			int queueSize;
+			String queueSizeText = queueSizeInputView.getText().toString();
+			if (TextUtils.isEmpty(queueSizeText)) {
+				queueSize = DEFAULT_QUEUE_SIZE;
+			} else {
+				try {
+					queueSize = Integer.parseInt(queueSizeText);
+				} catch (Exception e) {
+					Log.wtf("AndroidSRC_Crawler", String.format("Failed to parse [queueSizeText=%s]", queueSizeText), e);
+					queueSize = 500_000;
+				}
+			}
+
+			long resetTime;
+			String resetTimeText = resetTimeInputView.getText().toString();
+			if (TextUtils.isEmpty(resetTimeText)) {
+				resetTime = DEFAULT_RESET_TIME;
+			} else {
+				try {
+					resetTime = Long.parseLong(resetTimeText) * HOUR_IN_MS;
+				} catch (Exception e) {
+					Log.wtf("AndroidSRC_Crawler", String.format("Failed to parse [resetTimeText=%s]", resetTimeText), e);
+					resetTime = 356 * 24 * HOUR_IN_MS;
+				}
+			}
+
+			int throttle;
+			String throttleText = throttleInputView.getText().toString();
+			if (TextUtils.isEmpty(throttleText)) {
+				throttle = DEFAULT_THROTTLE;
+			} else {
+				try {
+					throttle = Integer.parseInt(throttleText);
+				} catch (Exception e) {
+					Log.wtf("AndroidSRC_Crawler", String.format("Failed to parse [throttleText=%s]", throttleText), e);
+					throttle = 500_000;
+				}
+			}
+
+			crawlingRunning = true;
+			crawler.setup(queueSize, throttle);
+			crawler.startCrawlerTask(webUrl, true);
+//			startButton.setEnabled(false);
+			startButton.setText("Stop Crawling");
+			crawlingInfo.setVisibility(View.VISIBLE);
+
+			// Send delayed message to handler for restarting crawling
+			handler.sendEmptyMessageDelayed(MSG_STOP_CRAWLING, resetTime);
 		}
 	}
 
 	private Handler handler = new Handler() {
 		public void handleMessage(android.os.Message msg) {
 			stopCrawling();
+			startCrawling();
 		};
 	};
 
@@ -119,18 +187,20 @@ public class MainActivity extends Activity implements OnClickListener {
 	 */
 	private void stopCrawling() {
 		if (crawlingRunning) {
+			handler.removeMessages(MSG_STOP_CRAWLING);
 			crawler.stopCrawlerTasks();
 			crawlingInfo.setVisibility(View.INVISIBLE);
-			startButton.setEnabled(true);
+//			startButton.setEnabled(true);
 			startButton.setVisibility(View.VISIBLE);
+			startButton.setText("Start Crawling");
 			crawlingRunning = false;
-			if (crawledUrlCount > 0)
-				Toast.makeText(getApplicationContext(),
-						printCrawledEntriesFromDb() + "pages crawled",
-						Toast.LENGTH_SHORT).show();
+			// if (crawledUrlCount.get() > 0)
+			//	Toast.makeText(getApplicationContext(),
+			//			crawledUrlCount.get() + " pages crawled",
+			//			Toast.LENGTH_SHORT).show();
 
-			crawledUrlCount = 0;
-			progressText.setText("");
+			progressText.setText("crawledUrlCount.get() + \" pages crawled\"");
+			crawledUrlCount.set(0);
 		}
 	}
 
