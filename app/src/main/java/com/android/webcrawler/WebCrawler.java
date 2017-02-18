@@ -104,7 +104,7 @@ public class WebCrawler {
                     Log.e(Constant.TAG, "Failed to prefill database", e);
                 }
 
-                mHandler.sendEmptyMessage(Constant.MSG_SPAWN_CRAWLERS);
+                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, 100);
                 return null;
             }
         }.execute();
@@ -138,29 +138,37 @@ public class WebCrawler {
      */
     private Handler mHandler = new Handler(Looper.getMainLooper()) {
         public void handleMessage(android.os.Message msg) {
-            mHandler.removeMessages(0);
-            try {
-                DbHelper dbHelper = dbHelperFactory.buildDbHelper();
-                LinkDao linkDao = dbHelper.getLinkDao();
+            mHandler.removeMessages(Constant.MSG_SPAWN_CRAWLERS);
+            new AsyncTask<Object, Object, Object>() {
+                @Override
+                protected Object doInBackground(Object... params) {
+                    try {
+                        final DbHelper dbHelper = dbHelperFactory.buildDbHelper();
+                        final LinkDao linkDao = dbHelper.getLinkDao();
 
-                if (!mManager.isShuttingDown() && throttler.hasNext() && mManager.hasUnusedThreads() && !linkDao.isQueueEmpty()) {
-                    String url = linkDao.removeNextAndCommit();
-                    if (throttler.next()) {
-                        enqueueTask(url);
-                    } else {
-                        linkDao.saveForced(url);
+                        if (!mManager.isShuttingDown() && throttler.hasNext() && mManager.hasUnusedThreads() && !linkDao.isQueueEmpty()) {
+                            String url = linkDao.removeNextAndCommit();
+                            if (throttler.next()) {
+                                enqueueTask(url);
+                            } else {
+                                linkDao.saveForced(url);
+                            }
+                        }
+                        dbHelper.close();
+                    } catch (SQLException e) {
+                        Log.wtf(Constant.TAG, "Failed to access database", e);
                     }
-                }
 
-                if (mManager.isShuttingDown()) {
-                    // Quit if manager is shutting done
-                    return;
-                }
+                    if (mManager.isShuttingDown()) {
+                        // Quit if manager is shutting done
+                        mHandler.removeMessages(Constant.MSG_SPAWN_CRAWLERS);
+                        return null;
+                    }
 
-                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, throttler.waitTime() / 2);
-            } catch (SQLException e) {
-                Log.wtf(Constant.TAG, "Failed to access database", e);
-            }
+                    mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, 100);
+                    return null;
+                }
+            }.execute();
         }
 
         private void enqueueTask(String url) {

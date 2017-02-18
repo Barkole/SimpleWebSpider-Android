@@ -36,4 +36,5 @@ public interface HttpClient {
 
 	public abstract String getMimeType();
 
+	public abstract String getReponseHeader(String location);
 }

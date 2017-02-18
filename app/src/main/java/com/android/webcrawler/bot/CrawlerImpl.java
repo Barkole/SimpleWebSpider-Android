@@ -28,6 +28,7 @@ import com.android.webcrawler.dao.DbHelper;
 import com.android.webcrawler.dao.DbHelperFactory;
 import com.android.webcrawler.dao.LinkDao;
 import com.android.webcrawler.util.SimpleUrl;
+import com.android.webcrawler.util.StringUtils;
 import com.android.webcrawler.util.ValidityHelper;
 
 import java.io.IOException;
@@ -36,13 +37,8 @@ import java.net.MalformedURLException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class CrawlerImpl implements Crawler {
-
-	private static final long		CRAWLER_SLEEP_SECONDS_ON_ERROR_DEFAULT	= 10L;
-
-	private static final String		CRAWLER_SLEEP_SECONDS_ON_ERROR			= "crawler.sleep-seconds-on-error";
 
 	private final DbHelperFactory	dbHelperFactory;
 	private final LinkExtractor linkExtractor;
@@ -66,7 +62,15 @@ public class CrawlerImpl implements Crawler {
 
 			final int statusCode = httpClient.getStatusCode();
 			if (statusCode < 200 || statusCode >= 300) {
-				Log.i(Constant.TAG, "Failed to load URL \"" + baseUrl + "\":" + httpClient.getStatusLine());
+				String newLocation = httpClient.getReponseHeader("Location");
+				if (newLocation == null) {
+					Log.i(Constant.TAG, "Failed to load URL \"" + baseUrl + "\":" + httpClient.getStatusLine());
+				} else {
+					Log.i(Constant.TAG, "Failed to load URL \"" + baseUrl + "\", responses with new location: " + newLocation );
+					List urls = new ArrayList(1);
+					urls.add(newLocation);
+					saveLinks(urls);
+				}
 				httpClient.releaseConnection();
 				return null;
 			}
@@ -93,10 +97,6 @@ public class CrawlerImpl implements Crawler {
 		try {
 			final HttpClient httpClient = getHttpConnection(baseUrl);
 			if (httpClient == null) {
-				// Error occurs, try it later
-				setLinkUndone(baseUrl);
-				// Slow down thread
-				sleepOnError();
 				return;
 			}
 
@@ -111,27 +111,11 @@ public class CrawlerImpl implements Crawler {
 			if (urls == null) {
 				// Error occurs, try it later
 				setLinkUndone(baseUrl);
-				// Slow down thread
-				sleepOnError();
 			} else {
 				saveLinks(urls);
 			}
-		} catch (final Exception e) {
+		} catch (final Throwable e) {
 			Log.wtf(Constant.TAG, "Failed to crawl URL \"" + baseUrl + "\"", e);
-		}
-	}
-
-	private void sleepOnError() {
-		try {
-			long seconds = this.configuration.getLong(CRAWLER_SLEEP_SECONDS_ON_ERROR, CRAWLER_SLEEP_SECONDS_ON_ERROR_DEFAULT);
-			if (seconds < 0) {
-				Log.wtf(Constant.TAG, "Configuration " + CRAWLER_SLEEP_SECONDS_ON_ERROR + " is invalid. Using default value: "
-						+ CRAWLER_SLEEP_SECONDS_ON_ERROR_DEFAULT);
-				seconds = CRAWLER_SLEEP_SECONDS_ON_ERROR_DEFAULT;
-			}
-			TimeUnit.SECONDS.sleep(seconds);
-		} catch (final InterruptedException e) {
-			Log.d(Constant.TAG, "Sleep was interrupted", e);
 		}
 	}
 

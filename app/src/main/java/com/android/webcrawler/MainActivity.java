@@ -12,6 +12,8 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.android.webcrawler.dao.mem.MemDbHelperFactory;
+
 public class MainActivity extends Activity implements OnClickListener {
 
 	private LinearLayout crawlingInfo;
@@ -25,7 +27,7 @@ public class MainActivity extends Activity implements OnClickListener {
 	private volatile WebCrawler crawler;
 	private static final long HOUR_IN_MS = 60*60*1_000;
 	private static final long DEFAULT_RESET_TIME = 24*HOUR_IN_MS;
-	private static final int DEFAULT_QUEUE_SIZE = 1_000;
+	private static final int DEFAULT_QUEUE_SIZE = 100_000;
 	private static final int DEFAULT_THROTTLE = 10;
 	private static final int REFRESH_DELAY = 100;
 
@@ -117,18 +119,19 @@ public class MainActivity extends Activity implements OnClickListener {
 			}
 		}
 
-		Configuration configuration = new Configuration();
-
-
-		crawler = new WebCrawler(this, throttle, configuration );
-		crawler.start(webUrl);
-
 		startButton.setText("Stop Crawling");
 		crawlingInfo.setVisibility(View.VISIBLE);
 
 		// Send delayed message to resetHandler for restarting crawling
 		resetHandler.sendEmptyMessageDelayed(Constant.MSG_RESTART_CRAWLING, resetTime);
 		updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
+
+		Configuration configuration = new Configuration();
+		configuration.putInt(MemDbHelperFactory.KEY_QUEUE_MAX_SIZE, queueSize);
+		configuration.putInt(MemDbHelperFactory.KEY_HASHES_MAX_SIZE, crawledQueueSize);
+
+		crawler = new WebCrawler(this, throttle, configuration );
+		crawler.start(webUrl);
 	}
 
 	private Handler resetHandler = new Handler() {

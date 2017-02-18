@@ -48,8 +48,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.Properties;
 
-import static android.webkit.ConsoleMessage.MessageLevel.LOG;
-
 final class HtmlWriter extends Writer {
 
 	public static final char	lb			= '<';
@@ -266,6 +264,7 @@ final class HtmlWriter extends Writer {
 			// an opening tag
 			tagend = tagEnd(in, 1);
 			tag = new String(in, 1, tagend - 1);
+
 			final char[] text = new char[in.length - tagend - 1];
 			System.arraycopy(in, tagend, text, 0, in.length - tagend - 1);
 			filterTag(tag, true, text, quotechar);

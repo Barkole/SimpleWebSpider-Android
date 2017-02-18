@@ -20,9 +20,9 @@ public class MemDbHelperFactory implements DbHelperFactory {
     private static final int DFLT_HASHES_MAX_SIZE = 100_000;
 
     private final Configuration configuration;
-    private final HostThrottler hostThrottler;
-    private final FixedSizeSet<String> queue;
-    private final FixedSizeSet<String> hashes;
+    volatile HostThrottler hostThrottler;
+    volatile FixedSizeSet<String> queue;
+    volatile FixedSizeSet<String> hashes;
 
     public MemDbHelperFactory(final Configuration configuration, final HostThrottler hostThrottler) {
         this.configuration = configuration;
@@ -43,7 +43,13 @@ public class MemDbHelperFactory implements DbHelperFactory {
 
     @Override
     public DbHelper buildDbHelper() throws SQLException {
-        return new MemDbHelper(hostThrottler, queue, hashes);
+        return new MemDbHelper(this);
+    }
+
+    void shutdown() {
+        this.queue = null;
+        this.hashes = null;
+        this.hostThrottler = null;
     }
 
 }
