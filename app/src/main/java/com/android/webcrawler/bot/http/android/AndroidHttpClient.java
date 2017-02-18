@@ -78,6 +78,12 @@ public class AndroidHttpClient implements HttpClient {
         return split[0];
     }
 
+    @Override
+    public String getReponseHeader(String location) {
+        checkForOpenConnection();
+        return urlConnection.getHeaderField(location);
+    }
+
     private void checkForOpenConnection() {
         if (this.url == null || this.urlConnection == null) {
             throw new IllegalStateException("There is no open connection");

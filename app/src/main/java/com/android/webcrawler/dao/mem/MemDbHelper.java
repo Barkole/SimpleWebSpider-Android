@@ -12,14 +12,10 @@ import java.sql.SQLException;
 
 class MemDbHelper implements DbHelper {
 
-    private final HostThrottler hostThrottler;
-    private final FixedSizeSet<String> queue;
-    private final FixedSizeSet<String> hashes;
+    private final MemDbHelperFactory memDbHelperFactory;
 
-    public MemDbHelper(final HostThrottler hostThrottler, FixedSizeSet<String> queue, FixedSizeSet<String> hashes) {
-        this.hostThrottler = hostThrottler;
-        this.queue = queue;
-        this.hashes = hashes;
+    public MemDbHelper(MemDbHelperFactory memDbHelperFactory) {
+        this.memDbHelperFactory = memDbHelperFactory;
     }
 
     @Override
@@ -49,19 +45,18 @@ class MemDbHelper implements DbHelper {
 
     @Override
     public void shutdown() throws SQLException {
-        queue.clear();
-        hashes.clear();
+        memDbHelperFactory.shutdown();
     }
 
     FixedSizeSet<String> getQueue() {
-        return queue;
+        return memDbHelperFactory.queue;
     }
 
     FixedSizeSet<String> getHashes() {
-        return hashes;
+        return memDbHelperFactory.hashes;
     }
 
     HostThrottler getHostThrottler() {
-        return hostThrottler;
+        return memDbHelperFactory.hostThrottler;
     }
 }

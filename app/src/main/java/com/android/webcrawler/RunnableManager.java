@@ -45,9 +45,7 @@ public class RunnableManager {
         mCrawlingThreadPool.execute(runnable);
     }
 
-    public void cancelAllRunnable() {
-        mCrawlingThreadPool.shutdownNow();
-    }
+    public void cancelAllRunnable() { mCrawlingThreadPool.shutdownNow(); }
 
     public int getUnusedPoolSize() {
         return maxPoolSize - mCrawlingThreadPool.getActiveCount();
@@ -63,7 +61,8 @@ public class RunnableManager {
 
     public boolean isShuttingDown() {
         return mCrawlingThreadPool.isShutdown()
-                || mCrawlingThreadPool.isTerminating();
+                || mCrawlingThreadPool.isTerminating()
+                || mCrawlingThreadPool.isTerminated();
     }
 
 }

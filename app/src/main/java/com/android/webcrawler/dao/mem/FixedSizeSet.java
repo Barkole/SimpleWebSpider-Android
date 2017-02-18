@@ -90,7 +90,7 @@ class FixedSizeSet<E> {
                     Log.d(Constant.TAG, String.format("Queue has limit exceeded: Remove one random [label=%s, size=%s, maxSize=%s]", label, set.size(), maxSize));
                 }
                 remove();
-            } else if ((set.size()+1) % 1_000 == 0){
+            } else if ((set.size()) % 1_000 == 0){
                 Log.d(Constant.TAG, String.format("Queue added new element [label=%s, size=%s, maxSize=%s]", label, set.size(), maxSize));
             }
             return set.add(e);
