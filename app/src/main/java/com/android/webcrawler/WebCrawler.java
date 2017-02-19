@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.webcrawler.bot.CrawlerImpl;
@@ -18,12 +17,6 @@ import com.android.webcrawler.dao.LinkDao;
 import com.android.webcrawler.dao.mem.MemDbHelperFactory;
 import com.android.webcrawler.throttle.host.simple.SimpleHostThrottler;
 import com.android.webcrawler.throttle.throughput.LimitThroughPut;
-import com.android.webcrawler.util.MD5;
-
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -46,7 +39,13 @@ public class WebCrawler {
     private final CrawlingCallback callback;
     private final HttpClientFactory httpClientFactory;
 
-    private final List<String> defaultStartPages;
+    private static final List<String> defaultStartPages = new ArrayList<>(4);
+    {
+        defaultStartPages.add("http://www.uroulette.com/");
+        defaultStartPages.add("http://linkarena.com/");
+        defaultStartPages.add("https://www.dmoz.org/");
+        defaultStartPages.add("https://en.wikipedia.org/wiki/Special:Random");
+    }
     private final Configuration configuration;
 
     private volatile String lastFinishedUrl = "Pending...";
@@ -73,11 +72,6 @@ public class WebCrawler {
         };
         this.configuration = configuration;
 
-        defaultStartPages = new ArrayList<>();
-        defaultStartPages.add("http://www.uroulette.com/");
-        defaultStartPages.add("https://en.wikipedia.org/wiki/Special:Random");
-        defaultStartPages.add("https://de.wikipedia.org/wiki/Spezial:Zuf%C3%A4llige_Seite");
-        defaultStartPages.add("https://bar.wikipedia.org/wiki/Spezial:Zuf%C3%A4llige_Seite");
         throttler = new LimitThroughPut(throttle);
         hostThrottler = new SimpleHostThrottler(configuration);
         dbHelperFactory = new MemDbHelperFactory(configuration, hostThrottler);
@@ -98,16 +92,22 @@ public class WebCrawler {
 
                     if (url == null) {
                         for (String defaultUrl : defaultStartPages) {
+                            // XXX Add to already done list
                             linkDao.saveAndCommit(defaultUrl);
+                            linkDao.removeNextAndCommit();
                         }
+                        for (String defaultUrl : defaultStartPages) {
+                            enqueueUrl(defaultUrl);
+                        }
+                        mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, throttler.getStaticWaitTime()+MIN_THREAD_SPAWN_WAIT);
                     } else {
                         linkDao.saveAndCommit(url);
+                        mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
                     }
                 } catch (SQLException e) {
                     Log.e(Constant.TAG, "Failed to prefill database", e);
+                    mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
                 }
-
-                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
                 return null;
             }
         }.execute();
@@ -154,14 +154,7 @@ public class WebCrawler {
                                     final LinkDao linkDao = dbHelper.getLinkDao();
 
                                     if (!mManager.isShuttingDown() && mManager.hasUnusedThreads() && throttler.hasNext()) {
-                                        String url = linkDao.removeNextAndCommit();
-                                        if (url != null) {
-                                            if (throttler.next()) {
-                                                enqueueTask(url);
-                                            } else {
-                                                linkDao.saveForced(url);
-                                            }
-                                        }
+                                        enqueueNextUrl(linkDao);
                                     }
                                     dbHelper.close();
                                 } catch (SQLException e) {
@@ -203,14 +196,26 @@ public class WebCrawler {
                }
 
 
-                private void enqueueTask(String url) {
-                   final LinkExtractor extractor = new StreamExtractor(configuration);
-                   CrawlerImpl crawler = new CrawlerImpl(dbHelperFactory, extractor, httpClientFactory, configuration);
-                   CrawlerRunner crawlerRunner = new CrawlerRunner(crawler, url, callback, mHandler);
-                   mManager.addToCrawlingQueue(crawlerRunner);
-                }
 
     };
+
+    private void enqueueNextUrl(LinkDao linkDao) {
+        String url = linkDao.removeNextAndCommit();
+        if (url != null) {
+            if (throttler.next()) {
+                enqueueUrl(url);
+            } else {
+                linkDao.saveForced(url);
+            }
+        }
+    }
+
+    private void enqueueUrl(String url) {
+        final LinkExtractor extractor = new StreamExtractor(configuration);
+        CrawlerImpl crawler = new CrawlerImpl(dbHelperFactory, extractor, httpClientFactory, configuration);
+        CrawlerRunner crawlerRunner = new CrawlerRunner(crawler, url, callback, mHandler);
+        mManager.addToCrawlingQueue(crawlerRunner);
+    }
 
     public String getLastUrl() {
         return lastFinishedUrl;

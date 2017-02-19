@@ -11,7 +11,7 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:hint="Enter URL" />
+        android:hint="Enter URL: (default list)" />
 
     <EditText
         android:layout_width="match_parent"
@@ -19,7 +19,7 @@
         android:inputType="number"
         android:ems="10"
         android:id="@+id/queueSize"
-        android:hint="Queue Size: 1.024" />
+        android:hint="Queue Size: (10.240)" />
 
     <EditText
         android:layout_width="match_parent"
@@ -27,7 +27,7 @@
         android:inputType="number"
         android:ems="10"
         android:id="@+id/resetTime"
-        android:hint="Reset time in hours: never" />
+        android:hint="Reset time in hours: (never)" />
 
     <EditText
         android:layout_width="match_parent"
@@ -35,7 +35,7 @@
         android:inputType="number"
         android:ems="10"
         android:id="@+id/throttle"
-        android:hint="Requestes/min: 4" />
+        android:hint="Requestes/min: (4)" />
 
     <Button
         android:id="@+id/start"
