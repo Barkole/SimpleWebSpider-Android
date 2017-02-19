@@ -50,6 +50,7 @@ import java.util.Properties;
 
 final class TagWriter extends Writer {
 
+	private static final int    MIN_BUFFER_SIZE = 256;
 	private static final int    MAX_BUFFER_SIZE = 10 * 1024 * 1024;
 
 	private static final char	singlequote	= '\'';
@@ -61,7 +62,7 @@ final class TagWriter extends Writer {
 	private int					length;
 
 	public TagWriter() {
-		this.buffer = new char[10];
+		this.buffer = new char[MIN_BUFFER_SIZE];
 		this.length = 0;
 		this.offset = 0;
 	}
@@ -144,8 +145,8 @@ final class TagWriter extends Writer {
 
 	private void grow() {
 		int newsize = this.buffer.length * 2;
-		if (newsize < 256) {
-			newsize = 256;
+		if (newsize < MIN_BUFFER_SIZE) {
+			newsize = MIN_BUFFER_SIZE;
 		}
 		Log.d(Constant.TAG, "Increase tag writer buffer: from " + this.buffer.length + " to " + newsize);
 		checkBufferSize(newsize);

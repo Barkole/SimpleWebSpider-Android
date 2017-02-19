@@ -35,7 +35,7 @@ public class RunnableManager {
     public RunnableManager(Configuration configuration) {
         maxPoolSize = determineMaxPoolSize(configuration);
         int startSize = maxPoolSize/2;
-        mCrawlingQueue = new LinkedBlockingQueue<>();
+        mCrawlingQueue = new LinkedBlockingQueue<>(maxPoolSize*2);
         mCrawlingThreadPool = new ThreadPoolExecutor(startSize,
                 maxPoolSize, KEEP_ALIVE_TIME, KEEP_ALIVE_TIME_UNIT,
                 mCrawlingQueue);
@@ -60,15 +60,11 @@ public class RunnableManager {
     public void cancelAllRunnable() { mCrawlingThreadPool.shutdownNow(); }
 
     public int getUnusedPoolSize() {
-        return maxPoolSize - mCrawlingThreadPool.getActiveCount();
+        return mCrawlingQueue.remainingCapacity();
     }
 
     public boolean hasUnusedThreads() {
         return getUnusedPoolSize() > 0;
-    }
-
-    public boolean hasNoActiveThreads() {
-        return mCrawlingThreadPool.getActiveCount() == 0;
     }
 
     public boolean isShuttingDown() {

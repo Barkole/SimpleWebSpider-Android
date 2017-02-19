@@ -48,11 +48,11 @@ class MemDbHelper implements DbHelper {
         memDbHelperFactory.shutdown();
     }
 
-    FixedSizeSet<String> getQueue() {
+    SmallSet<String> getQueue() {
         return memDbHelperFactory.queue;
     }
 
-    FixedSizeSet<String> getHashes() {
+    SmallSet<String> getHashes() {
         return memDbHelperFactory.hashes;
     }
 

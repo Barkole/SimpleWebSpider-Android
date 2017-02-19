@@ -25,7 +25,7 @@ class MemLinkDao implements LinkDao {
 
     @Override
     public String removeNextAndCommit() {
-        FixedSizeSet<String> queue = memDbHelper.getQueue();
+        SmallSet<String> queue = memDbHelper.getQueue();
         HostThrottler hostThrottler = memDbHelper.getHostThrottler();
 
         // Determine how many Link objects has to be loaded into memory for host throttling
@@ -69,18 +69,12 @@ class MemLinkDao implements LinkDao {
 
     @Override
     public void saveForced(String link) {
-        FixedSizeSet<String> queue = memDbHelper.getQueue();
+        SmallSet<String> queue = memDbHelper.getQueue();
         queue.put(link);
     }
 
-    @Override
-    public boolean isQueueEmpty() {
-        FixedSizeSet<String> queue = memDbHelper.getQueue();
-        return queue.isEmpty();
-    }
-
     private boolean addHash(final String url) {
-        FixedSizeSet<String> hashes = memDbHelper.getHashes();
+        SmallSet<String> hashes = memDbHelper.getHashes();
         String md5 = MD5.encodeString(url, MD5.UTF8);
         return hashes.put(md5);
     }
