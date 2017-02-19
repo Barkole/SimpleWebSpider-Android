@@ -29,7 +29,7 @@ public class MainActivity extends Activity implements OnClickListener {
 	private static final long DEFAULT_RESET_TIME = 24*HOUR_IN_MS;
 	private static final int DEFAULT_QUEUE_SIZE = 100_000;
 	private static final int DEFAULT_THROTTLE = 10;
-	private static final int REFRESH_DELAY = 100;
+	private static final int REFRESH_DELAY = 500;
 
 
 	@Override

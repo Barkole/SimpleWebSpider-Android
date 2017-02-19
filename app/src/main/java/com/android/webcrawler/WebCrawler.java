@@ -46,7 +46,7 @@ public class WebCrawler {
     private final List<String> defaultStartPages;
     private final Configuration configuration;
 
-    private volatile String lastFinishedUrl;
+    private volatile String lastFinishedUrl = "Pending...";
     final private AtomicLong crawledUrlCount = new AtomicLong();
 
     public WebCrawler(Context ctx, int throttle, Configuration configuration) {
@@ -79,7 +79,7 @@ public class WebCrawler {
         hostThrottler = new SimpleHostThrottler(configuration);
         dbHelperFactory = new MemDbHelperFactory(configuration, hostThrottler);
         httpClientFactory = new AndroidHttpClientFactory();
-        mManager = new RunnableManager();
+        mManager = new RunnableManager(configuration);
         
     }
 
