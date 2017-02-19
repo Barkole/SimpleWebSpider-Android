@@ -50,6 +50,8 @@ import java.util.Properties;
 
 final class TagWriter extends Writer {
 
+	private static final int    MAX_BUFFER_SIZE = 10 * 1024 * 1024;
+
 	private static final char	singlequote	= '\'';
 	private static final char	doublequote	= '"';
 	private static final char	equal		= '=';
@@ -65,6 +67,7 @@ final class TagWriter extends Writer {
 	}
 
 	public TagWriter(final int initLength) {
+		checkBufferSize(initLength);
 		this.buffer = new char[initLength];
 		this.length = 0;
 		this.offset = 0;
@@ -145,6 +148,7 @@ final class TagWriter extends Writer {
 			newsize = 256;
 		}
 		Log.d(Constant.TAG, "Increase tag writer buffer: from " + this.buffer.length + " to " + newsize);
+		checkBufferSize(newsize);
 
 		final char[] tmp = new char[newsize];
 		System.arraycopy(this.buffer, this.offset, tmp, 0, this.length);
@@ -565,6 +569,12 @@ final class TagWriter extends Writer {
 	@Override
 	public void flush() throws IOException {
 		// TODO Auto-generated method stub        
+	}
+
+	private static void checkBufferSize(int newSize) {
+		if (newSize > MAX_BUFFER_SIZE) {
+			throw new IllegalStateException(String.format("New buffer size exceeds max buffer size [newSize=%s, maxSize=%s]", newSize, MAX_BUFFER_SIZE));
+		}
 	}
 
 }
