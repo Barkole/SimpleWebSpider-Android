@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit;
  */
 
 public class RunnableManager {
+    public static final String KEY_THREAD_POOL_HARD_LIMIT = "threads.hard-limit";
+    private static final int DFLT_THREAD_POOL_HARD_LIMIT = 4;
     // Sets the amount of time an idle thread will wait for a task before
     // terminating
     private static final int KEEP_ALIVE_TIME = 1;
@@ -30,15 +32,25 @@ public class RunnableManager {
     // A managed pool of background crawling threads
     private final ThreadPoolExecutor mCrawlingThreadPool;
 
-    public RunnableManager() {
-        int cores = Runtime.getRuntime().availableProcessors();
-        int startSize = cores/2;
-        maxPoolSize = cores;
-        Log.i(Constant.TAG, String.format("Setup thread pool [cores=%s, startSize=%s, maxPoolSize=%s]", cores, startSize, maxPoolSize));
+    public RunnableManager(Configuration configuration) {
+        maxPoolSize = determineMaxPoolSize(configuration);
+        int startSize = maxPoolSize/2;
         mCrawlingQueue = new LinkedBlockingQueue<>();
         mCrawlingThreadPool = new ThreadPoolExecutor(startSize,
                 maxPoolSize, KEEP_ALIVE_TIME, KEEP_ALIVE_TIME_UNIT,
                 mCrawlingQueue);
+    }
+
+    private int determineMaxPoolSize(Configuration configuration) {
+        int hardLimit = configuration.getInt(KEY_THREAD_POOL_HARD_LIMIT, DFLT_THREAD_POOL_HARD_LIMIT);
+        if (hardLimit < 1) {
+            hardLimit = 1;
+        }
+        int cores = Runtime.getRuntime().availableProcessors();
+        int maxPoolSize = cores > hardLimit ? hardLimit : cores;
+        Log.i(Constant.TAG, String.format("Setup thread pool [cores=%s, hardLimit=%s, maxPoolSize=%s]", cores, hardLimit, maxPoolSize));
+
+        return hardLimit;
     }
 
     public void addToCrawlingQueue(Runnable runnable) {
