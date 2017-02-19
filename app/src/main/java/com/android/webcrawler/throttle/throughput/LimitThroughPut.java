@@ -12,16 +12,21 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 
 public class LimitThroughPut {
-    final private List<Date> times						= new LinkedList<>();
-    final private int maxPerMinute;
+    private final List<Date> times						= new LinkedList<>();
+    private final int maxPerMinute;
+    private final long staticWaitTime;
 
     // use ReentrantLock instead of synchronized for scalability
     private final ReentrantLock lock = new ReentrantLock(false);
 
-
     public LimitThroughPut(final int maxPerMinute) {
         this.maxPerMinute = maxPerMinute;
+        this.staticWaitTime = 60_000L / maxPerMinute;
     }
+
+    public int getMaxPerMinute() { return maxPerMinute; }
+
+    public long getStaticWaitTime() { return staticWaitTime; }
 
     public long waitTime() {
         lock.lock();
