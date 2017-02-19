@@ -180,8 +180,7 @@ public class MainActivity extends Activity implements OnClickListener {
 
 		crawlingInfo.setVisibility(View.INVISIBLE);
 		startButton.setText("Start Crawling");
-		progressText.setText("crawledUrlCount.get() + \" pages crawled\"");
-
+		progressText.setText("...");
 	}
 
 }
