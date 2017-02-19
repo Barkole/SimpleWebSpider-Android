@@ -27,7 +27,7 @@ public class MainActivity extends Activity implements OnClickListener {
 	private volatile WebCrawler crawler;
 	private static final long HOUR_IN_MS = 60*60*1_000;
 	private static final long DEFAULT_RESET_TIME = 0;
-	private static final int DEFAULT_QUEUE_SIZE = 1_024;
+	private static final int DEFAULT_QUEUE_SIZE = 10_240;
 	private static final int DEFAULT_THROTTLE = 4;
 	private static final int REFRESH_DELAY = 256;
 
