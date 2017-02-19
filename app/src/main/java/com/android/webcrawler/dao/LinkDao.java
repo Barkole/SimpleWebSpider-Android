@@ -25,6 +25,4 @@ public interface LinkDao {
 
 	public void saveForced(String link);
 
-	public boolean isQueueEmpty();
-
 }

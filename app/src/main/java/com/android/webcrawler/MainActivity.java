@@ -26,10 +26,10 @@ public class MainActivity extends Activity implements OnClickListener {
 
 	private volatile WebCrawler crawler;
 	private static final long HOUR_IN_MS = 60*60*1_000;
-	private static final long DEFAULT_RESET_TIME = 24*HOUR_IN_MS;
-	private static final int DEFAULT_QUEUE_SIZE = 100_000;
-	private static final int DEFAULT_THROTTLE = 10;
-	private static final int REFRESH_DELAY = 500;
+	private static final long DEFAULT_RESET_TIME = 0;
+	private static final int DEFAULT_QUEUE_SIZE = 1_024;
+	private static final int DEFAULT_THROTTLE = 4;
+	private static final int REFRESH_DELAY = 256;
 
 
 	@Override
@@ -85,12 +85,12 @@ public class MainActivity extends Activity implements OnClickListener {
 				queueSize = 500_000;
 			}
 		}
-		if (queueSize < 1000) {
-			queueSize = 1000;
+		if (queueSize < 1024) {
+			queueSize = 1024;
 		}
-		int crawledQueueSize = queueSize;
-		if (crawledQueueSize < 1000) {
-			crawledQueueSize = 1000;
+		int crawledQueueSize = queueSize/10;
+		if (crawledQueueSize < 128) {
+			crawledQueueSize = 128;
 		}
 
 		long resetTime;
@@ -120,15 +120,18 @@ public class MainActivity extends Activity implements OnClickListener {
 		}
 
 		startButton.setText("Stop Crawling");
+		progressText.setText("Starting...");
 		crawlingInfo.setVisibility(View.VISIBLE);
 
-		// Send delayed message to resetHandler for restarting crawling
-		resetHandler.sendEmptyMessageDelayed(Constant.MSG_RESTART_CRAWLING, resetTime);
+		if (resetTime > 0) {
+			// Send delayed message to resetHandler for restarting crawling
+			resetHandler.sendEmptyMessageDelayed(Constant.MSG_RESTART_CRAWLING, resetTime);
+		}
 		updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
 
 		Configuration configuration = new Configuration();
-		configuration.putInt(MemDbHelperFactory.KEY_QUEUE_MAX_SIZE, queueSize);
-		configuration.putInt(MemDbHelperFactory.KEY_HASHES_MAX_SIZE, crawledQueueSize);
+		configuration.putInt(MemDbHelperFactory.KEY_QUEUE_SIZE, queueSize);
+		configuration.putInt(MemDbHelperFactory.KEY_HASHES_SIZE, crawledQueueSize);
 
 		crawler = new WebCrawler(this, throttle, configuration );
 		crawler.start(webUrl);
@@ -143,6 +146,7 @@ public class MainActivity extends Activity implements OnClickListener {
 
 	private Handler updateTextHandler = new Handler() {
 		public void handleMessage(android.os.Message msg) {
+			updateTextHandler.removeMessages(Constant.MSG_UPDATE_INFO);
 			WebCrawler currentCrawler = crawler;
 			if (currentCrawler == null) {
 				return;
@@ -178,9 +182,9 @@ public class MainActivity extends Activity implements OnClickListener {
 		updateTextHandler.removeMessages(Constant.MSG_UPDATE_INFO);
 		oldCrawler.stopCrawlerTasks();
 
+		progressText.setText("Stopping...");
 		crawlingInfo.setVisibility(View.INVISIBLE);
 		startButton.setText("Start Crawling");
-		progressText.setText("...");
 	}
 
 }

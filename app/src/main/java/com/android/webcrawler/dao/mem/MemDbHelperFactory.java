@@ -13,16 +13,16 @@ import java.sql.SQLException;
 
 public class MemDbHelperFactory implements DbHelperFactory {
 
-    public static final String KEY_QUEUE_MAX_SIZE = "database.mem.queue.max-size";
-    private static final int DFLT_QUEUE_MAX_SIZE = 100_000;
+    public static final String KEY_QUEUE_SIZE = "database.mem.queue.size";
+    private static final int DFLT_QUEUE_SIZE = 1_024;
 
-    public static final String KEY_HASHES_MAX_SIZE = "database.mem.hashes.max-size";
-    private static final int DFLT_HASHES_MAX_SIZE = 100_000;
+    public static final String KEY_HASHES_SIZE = "database.mem.hashes.size";
+    private static final int DFLT_HASHES_SIZE = 1_024;
 
     private final Configuration configuration;
     volatile HostThrottler hostThrottler;
-    volatile FixedSizeSet<String> queue;
-    volatile FixedSizeSet<String> hashes;
+    volatile SmallSet<String> queue;
+    volatile SmallSet<String> hashes;
 
     public MemDbHelperFactory(final Configuration configuration, final HostThrottler hostThrottler) {
         this.configuration = configuration;
@@ -31,14 +31,14 @@ public class MemDbHelperFactory implements DbHelperFactory {
         this.hashes = buildHashes(this.configuration);
     }
 
-    private FixedSizeSet<String> buildHashes(Configuration configuration) {
-        int maxSize = configuration.getInt(KEY_HASHES_MAX_SIZE, DFLT_HASHES_MAX_SIZE);
-        return new FixedSizeSet<>(maxSize, "hashes");
+    private SmallSet<String> buildHashes(Configuration configuration) {
+        int size = configuration.getInt(KEY_HASHES_SIZE, DFLT_HASHES_SIZE);
+        return new NiceSet<>(size, size*10, size*100, "hashes");
     }
 
-    private FixedSizeSet<String> buildQueue(Configuration configuration) {
-        int maxSize = configuration.getInt(KEY_QUEUE_MAX_SIZE, DFLT_QUEUE_MAX_SIZE);
-        return new FixedSizeSet<>(maxSize, "queue");
+    private SmallSet<String> buildQueue(Configuration configuration) {
+        int size = configuration.getInt(KEY_QUEUE_SIZE, DFLT_QUEUE_SIZE);
+        return new NiceSet<>(size, size*10, size*100, "queue");
     }
 
     @Override

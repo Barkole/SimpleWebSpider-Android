@@ -15,7 +15,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Created by Mike on 18.02.2017.
  */
 
-class FixedSizeSet<E> {
+class FixedSizeSet<E>  implements SmallSet<E> {
     private final int maxSize;
     private final Set<E> set = new LinkedHashSet<>();
     private final Random rnd = new Random();
