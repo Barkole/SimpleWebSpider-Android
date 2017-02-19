@@ -143,7 +143,7 @@ final class TagWriter extends Writer {
 	}
 
 	private void grow() {
-		int newsize = this.buffer.length * 2 + 1;
+		int newsize = this.buffer.length * 2;
 		if (newsize < 256) {
 			newsize = 256;
 		}
