@@ -51,23 +51,24 @@ public class WebCrawler {
     private volatile String lastFinishedUrl = "Pending...";
     final private AtomicLong crawledUrlCount = new AtomicLong();
 
-    public WebCrawler(Context ctx, int throttle, Configuration configuration) {
+    public WebCrawler(Context ctx, int throttle, Configuration configuration, final CrawlingCallback callback) {
         this.mContext = ctx;
         this.callback = new CrawlingCallback() {
             @Override
             public void onPageCrawlingCompleted(String url) {
                 lastFinishedUrl = url;
                 crawledUrlCount.incrementAndGet();
+                callback.onPageCrawlingCompleted(url);
             }
 
             @Override
             public void onPageCrawlingFailed(String url, int errorCode) {
-                // Nothing to do
+                callback.onPageCrawlingFailed(url, errorCode);
             }
 
             @Override
             public void onPageCrawlingFinished() {
-                // Nothing to do
+                callback.onPageCrawlingFinished();
             }
         };
         this.configuration = configuration;
@@ -81,36 +82,29 @@ public class WebCrawler {
     }
 
     public void start(final String url) {
-        new AsyncTask<Object, Object, Object>() {
+        Log.i(Constant.TAG, "Start crawler");
+        try {
+            DbHelper dbHelper = dbHelperFactory.buildDbHelper();
+            LinkDao linkDao = dbHelper.getLinkDao();
 
-            @Override
-            protected Object doInBackground(Object... params) {
-                Log.i(Constant.TAG, "Start crawler");
-                try {
-                    DbHelper dbHelper = dbHelperFactory.buildDbHelper();
-                    LinkDao linkDao = dbHelper.getLinkDao();
-
-                    if (url == null) {
-                        for (String defaultUrl : defaultStartPages) {
-                            // XXX Add to already done list
-                            linkDao.saveAndCommit(defaultUrl);
-                            linkDao.removeNextAndCommit();
-                        }
-                        for (String defaultUrl : defaultStartPages) {
-                            enqueueUrl(defaultUrl);
-                        }
-                        mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, throttler.getStaticWaitTime()+MIN_THREAD_SPAWN_WAIT);
-                    } else {
-                        linkDao.saveAndCommit(url);
-                        mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
-                    }
-                } catch (SQLException e) {
-                    Log.e(Constant.TAG, "Failed to prefill database", e);
-                    mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
+            if (url == null) {
+                for (String defaultUrl : defaultStartPages) {
+                    // XXX Add to already done list
+                    linkDao.saveAndCommit(defaultUrl);
+                    linkDao.removeNextAndCommit();
                 }
-                return null;
+                for (String defaultUrl : defaultStartPages) {
+                    enqueueUrl(defaultUrl);
+                }
+                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, throttler.getStaticWaitTime()+MIN_THREAD_SPAWN_WAIT);
+            } else {
+                linkDao.saveAndCommit(url);
+                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
             }
-        }.execute();
+        } catch (SQLException e) {
+            Log.e(Constant.TAG, "Failed to prefill database", e);
+            mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
+        }
     }
 
     /**

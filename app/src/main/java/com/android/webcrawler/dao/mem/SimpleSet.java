@@ -5,13 +5,7 @@ import java.util.Collection;
 /**
  * Created by Mike on 19.02.2017.
  */
-public interface SmallSet<E> {
-    void clear();
-
-    boolean contains(E e);
-
-    boolean isEmpty();
-
+public interface SimpleSet<E> {
     E remove();
 
     boolean put(E e);

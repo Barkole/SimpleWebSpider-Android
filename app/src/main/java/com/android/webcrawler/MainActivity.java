@@ -1,6 +1,8 @@
 package com.android.webcrawler;
 
 import android.app.Activity;
+import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -19,7 +21,6 @@ public class MainActivity extends Activity implements OnClickListener {
 	private LinearLayout crawlingInfo;
 	private Button startButton;
 	private EditText urlInputView;
-	private EditText queueSizeInputView;
 	private EditText resetTimeInputView;
 	private EditText throttleInputView;
 	private TextView progressText;
@@ -27,7 +28,6 @@ public class MainActivity extends Activity implements OnClickListener {
 	private volatile WebCrawler crawler;
 	private static final long HOUR_IN_MS = 60*60*1_000;
 	private static final long DEFAULT_RESET_TIME = 0;
-	private static final int DEFAULT_QUEUE_SIZE = 10_240;
 	private static final int DEFAULT_THROTTLE = 4;
 	private static final int REFRESH_DELAY = 256;
 
@@ -40,7 +40,6 @@ public class MainActivity extends Activity implements OnClickListener {
 		crawlingInfo = (LinearLayout) findViewById(R.id.crawlingInfo);
 		startButton = (Button) findViewById(R.id.start);
 		urlInputView = (EditText) findViewById(R.id.webUrl);
-		queueSizeInputView = (EditText) findViewById(R.id.queueSize);
 		resetTimeInputView = (EditText) findViewById(R.id.resetTime);
 		throttleInputView = (EditText) findViewById(R.id.throttle);
 		progressText = (TextView) findViewById(R.id.progressText);
@@ -73,26 +72,6 @@ public class MainActivity extends Activity implements OnClickListener {
 			webUrl = null;
 		}
 
-		int queueSize;
-		String queueSizeText = queueSizeInputView.getText().toString();
-		if (TextUtils.isEmpty(queueSizeText)) {
-			queueSize = DEFAULT_QUEUE_SIZE;
-		} else {
-			try {
-				queueSize = Integer.parseInt(queueSizeText);
-			} catch (Exception e) {
-				Log.wtf(Constant.TAG, String.format("Failed to parse [queueSizeText=%s]", queueSizeText), e);
-				queueSize = 500_000;
-			}
-		}
-		if (queueSize < 1024) {
-			queueSize = 1024;
-		}
-		int crawledQueueSize = queueSize/10;
-		if (crawledQueueSize < 128) {
-			crawledQueueSize = 128;
-		}
-
 		long resetTime;
 		String resetTimeText = resetTimeInputView.getText().toString();
 		if (TextUtils.isEmpty(resetTimeText)) {
@@ -120,7 +99,7 @@ public class MainActivity extends Activity implements OnClickListener {
 		}
 
 		startButton.setText("Stop Crawling");
-		progressText.setText("Starting...");
+		progressText.setText("Running...");
 		crawlingInfo.setVisibility(View.VISIBLE);
 
 		if (resetTime > 0) {
@@ -130,11 +109,36 @@ public class MainActivity extends Activity implements OnClickListener {
 		updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
 
 		Configuration configuration = new Configuration();
-		configuration.putInt(MemDbHelperFactory.KEY_QUEUE_SIZE, queueSize);
-		configuration.putInt(MemDbHelperFactory.KEY_HASHES_SIZE, crawledQueueSize);
+		startCrawler(webUrl, throttle, configuration );
+	}
 
-		crawler = new WebCrawler(this, throttle, configuration );
-		crawler.start(webUrl);
+	private void startCrawler(final String webUrl, final int throttle, final Configuration configuration) {
+		final Context ctx = this;
+		final CrawlingCallback callback = new CrawlingCallback() {
+			@Override
+			public void onPageCrawlingCompleted(String url) {
+				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
+			}
+
+			@Override
+			public void onPageCrawlingFailed(String url, int errorCode) {
+				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
+			}
+
+			@Override
+			public void onPageCrawlingFinished() {
+				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
+			}
+		};
+
+		new AsyncTask<Object, Object, Object>() {
+			@Override
+			protected Object doInBackground(Object... params) {
+				crawler = new WebCrawler(ctx, throttle, configuration, callback);
+				crawler.start(webUrl);
+				return null;
+			}
+		}.execute();
 	}
 
 	private Handler resetHandler = new Handler() {
