@@ -19,10 +19,10 @@ package com.android.webcrawler.dao;
 
 public interface LinkDao {
 
-	public String removeNextAndCommit();
+	String removeNextAndCommit();
 
-	public void saveAndCommit(String link);
+	void saveAndCommit(String link);
 
-	public void saveForced(String link);
+	void saveForced(String link);
 
 }

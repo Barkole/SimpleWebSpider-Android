@@ -22,6 +22,6 @@ import java.sql.SQLException;
 
 public interface DbHelperFactory {
 
-	public abstract DbHelper buildDbHelper() throws SQLException;
+	DbHelper buildDbHelper() throws SQLException;
 
 }

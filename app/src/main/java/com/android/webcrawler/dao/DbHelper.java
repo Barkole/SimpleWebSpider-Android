@@ -22,16 +22,16 @@ import java.sql.SQLException;
 
 public interface DbHelper {
 
-	public abstract void beginTransaction();
+	void beginTransaction();
 
-	public abstract void close() throws SQLException;
+	void close() throws SQLException;
 
-	public abstract void commitTransaction() throws SQLException;
+	void commitTransaction() throws SQLException;
 
-	public abstract LinkDao getLinkDao();
+	LinkDao getLinkDao();
 
-	public abstract void rollbackTransaction() throws SQLException;
+	void rollbackTransaction() throws SQLException;
 
-	public abstract void shutdown() throws SQLException;
+	void shutdown() throws SQLException;
 
 }

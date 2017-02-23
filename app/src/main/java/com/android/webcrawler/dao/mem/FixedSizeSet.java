@@ -15,7 +15,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Created by Mike on 18.02.2017.
  */
 
-class FixedSizeSet<E>  implements SmallSet<E> {
+class FixedSizeSet<E>  implements SimpleSet<E> {
     private final int maxSize;
     private final Set<E> set = new LinkedHashSet<>();
     private final Random rnd = new Random();
@@ -29,33 +29,6 @@ class FixedSizeSet<E>  implements SmallSet<E> {
         this.maxSize = maxSize;
         this.label = label;
         this.lock = new ReentrantLock(false);
-    }
-
-    public void clear() {
-        lock.lock();
-        try {
-            set.clear();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public boolean contains(E e) {
-        lock.lock();
-        try {
-            return set.contains(e);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public boolean isEmpty() {
-        lock.lock();
-        try {
-            return set.isEmpty();
-        } finally {
-            lock.unlock();
-        }
     }
 
     public E remove() {
@@ -86,8 +59,9 @@ class FixedSizeSet<E>  implements SmallSet<E> {
         lock.lock();
         try {
             if (set.size() >= maxSize) {
-                if (exceededCount++ % 1_000 == 0) {
+                if (++exceededCount >= 1_000) {
                     Log.d(Constant.TAG, String.format("Queue has limit exceeded: Remove one random [label=%s, size=%s, maxSize=%s]", label, set.size(), maxSize));
+                    exceededCount = 0;
                 }
                 remove();
             } else if ((set.size()) % 1_000 == 0){

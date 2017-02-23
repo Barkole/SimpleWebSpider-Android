@@ -18,14 +18,6 @@
         android:layout_height="wrap_content"
         android:inputType="number"
         android:ems="10"
-        android:id="@+id/queueSize"
-        android:hint="Queue Size: (10.240)" />
-
-    <EditText
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:inputType="number"
-        android:ems="10"
         android:id="@+id/resetTime"
         android:hint="Reset time in hours: (never)" />
 
