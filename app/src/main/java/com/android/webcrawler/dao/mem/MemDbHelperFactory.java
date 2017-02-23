@@ -22,6 +22,7 @@ import static java.lang.String.format;
 public class MemDbHelperFactory implements DbHelperFactory {
 
     private static final long MIN_REMAINING_HEAP = 10*1024*1024;
+    private static final long MAX_QUEUE_REQUIRED_HEAP = 20*1024*1024;
 
     private final Configuration configuration;
     volatile HostThrottler hostThrottler;
@@ -50,15 +51,15 @@ public class MemDbHelperFactory implements DbHelperFactory {
 
     private static int determineMaxSize() {
         long i = 0;
-        Runtime rt = Runtime.getRuntime();
+        long startRemaining = remainingMemory();
         try {
             List<String> hashes = new LinkedList<>();
             List<String> urls = new LinkedList<>();
             for (; i <= Integer.MAX_VALUE ; i++) {
                 hashes.add(format("%032d", i));
                 urls.add(format("%0256d", i));
-                if (getRemainingHeapSize() < MIN_REMAINING_HEAP) {
-                    return (int) (i/2);
+                if (reachedLimit(startRemaining)) {
+                    return (int) (i);
                 }
             }
         } catch (Throwable e) {
@@ -69,15 +70,22 @@ public class MemDbHelperFactory implements DbHelperFactory {
         return Integer.MAX_VALUE/2;
     }
 
-    private static long getRemainingHeapSize() {
-        long max = Runtime.getRuntime().maxMemory(); //the maximum memory the app can use
-        long heapSize = Runtime.getRuntime().totalMemory(); //current heap size
-        long heapRemaining = Runtime.getRuntime().freeMemory(); //amount available in heap
+    private static long remainingMemory() {
+        Runtime rt = Runtime.getRuntime();
+        long max = rt.maxMemory(); //the maximum memory the app can use
+        long heapSize = rt.totalMemory(); //current heap size
+        long heapRemaining = rt.freeMemory(); //amount available in heap
         long nativeUsage = Debug.getNativeHeapAllocatedSize(); //is this right? I only want to account for native memory that my app is being "charged" for.  Is this the proper way to account for that?
 
 //heapSize - heapRemaining = heapUsed + nativeUsage = totalUsage
         long remaining = max - (heapSize - heapRemaining + nativeUsage);
         return remaining;
+    }
+
+    private static boolean reachedLimit(long startRemaining) {
+        long remaining = remainingMemory();
+
+        return (remaining < MIN_REMAINING_HEAP) || (startRemaining - remaining > MAX_QUEUE_REQUIRED_HEAP);
     }
 
 
