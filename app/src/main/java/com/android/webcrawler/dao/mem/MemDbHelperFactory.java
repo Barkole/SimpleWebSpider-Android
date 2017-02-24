@@ -21,8 +21,7 @@ import static java.lang.String.format;
 
 public class MemDbHelperFactory implements DbHelperFactory {
 
-    private static final int QUEUE_SIZE = 40_000;
-    private static final int MAX_LENGTH = 256;
+    private static final int QUEUE_SIZE = 100*1024;
 
     private final Configuration configuration;
     volatile HostThrottler hostThrottler;
@@ -36,7 +35,7 @@ public class MemDbHelperFactory implements DbHelperFactory {
 
     @Override
     public DbHelper buildDbHelper() throws SQLException {
-        return new MemDbHelper(this, MAX_LENGTH);
+        return new MemDbHelper(this);
     }
 
     void shutdown() {
