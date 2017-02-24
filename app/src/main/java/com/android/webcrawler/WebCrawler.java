@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.util.Log;
 
 import com.android.webcrawler.bot.CrawlerImpl;
@@ -21,13 +22,14 @@ import com.android.webcrawler.throttle.throughput.LimitThroughPut;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 
 public class WebCrawler {
 
-    private static final long MIN_THREAD_SPAWN_WAIT = 250L;
+    private static final long MIN_THREAD_SPAWN_WAIT = 10L;
 
     private final Context mContext;
     private final SimpleHostThrottler hostThrottler;
@@ -38,6 +40,9 @@ public class WebCrawler {
     // Callback interface object to notify UI
     private final CrawlingCallback callback;
     private final HttpClientFactory httpClientFactory;
+
+    private volatile boolean shutdown;
+    private volatile String startUrl;
 
     private static final List<String> defaultStartPages = new ArrayList<>(4);
     {
@@ -52,6 +57,7 @@ public class WebCrawler {
         this.mContext = ctx;
         this.callback = callback;
         this.configuration = configuration;
+        this.shutdown = false;
 
         throttler = new LimitThroughPut(throttle);
         hostThrottler = new SimpleHostThrottler(configuration);
@@ -63,7 +69,10 @@ public class WebCrawler {
 
     public void start(final String url) {
         Log.i(Constant.TAG, "Start crawler");
+        long firstWaitTime = MIN_THREAD_SPAWN_WAIT;
         try {
+            shutdown = false;
+            startUrl = url;
             DbHelper dbHelper = dbHelperFactory.buildDbHelper();
             LinkDao linkDao = dbHelper.getLinkDao();
 
@@ -76,14 +85,14 @@ public class WebCrawler {
                 for (String defaultUrl : defaultStartPages) {
                     enqueueUrl(defaultUrl);
                 }
-                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, throttler.getStaticWaitTime()+MIN_THREAD_SPAWN_WAIT);
+                firstWaitTime += throttler.getStaticWaitTime();
             } else {
                 linkDao.saveAndCommit(url);
-                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
             }
         } catch (SQLException e) {
             Log.e(Constant.TAG, "Failed to prefill database", e);
-            mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, MIN_THREAD_SPAWN_WAIT);
+        } finally {
+            run(firstWaitTime);
         }
     }
 
@@ -91,6 +100,7 @@ public class WebCrawler {
      * API to shutdown ThreadPoolExecuter
      */
     public void stopCrawlerTasks() {
+        this.shutdown = true;
         new AsyncTask<Object, Object, Object>() {
 
             @Override
@@ -109,69 +119,53 @@ public class WebCrawler {
         }.execute();
     }
 
+    private void run(long firstWaitTime) {
+        try {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
+            TimeUnit.MILLISECONDS.sleep(firstWaitTime);
+            while (!shutdown && !mManager.isShuttingDown()) {
+                long waitTime;
+                if (mManager.hasUnusedThreads() && throttler.hasNext()) {
+                    try {
+                        final DbHelper dbHelper = dbHelperFactory.buildDbHelper();
+                        final LinkDao linkDao = dbHelper.getLinkDao();
 
-           /**
-     * To manage Messages in a Thread
-     */
-    private Handler mHandler = new Handler(Looper.getMainLooper()) {
-                private final ReentrantLock lock = new ReentrantLock(false);
-
-                public void handleMessage(android.os.Message msg) {
-                    mHandler.removeMessages(Constant.MSG_SPAWN_CRAWLERS);
-                    if (!mManager.isShuttingDown() && mManager.hasUnusedThreads() && throttler.hasNext()) {
-                        new AsyncTask<Object, Object, Object>() {
-                            @Override
-                            protected Object doInBackground(Object... params) {
-                                lock.lock();
-                                try {
-                                    final DbHelper dbHelper = dbHelperFactory.buildDbHelper();
-                                    final LinkDao linkDao = dbHelper.getLinkDao();
-
-                                    if (!mManager.isShuttingDown() && mManager.hasUnusedThreads() && throttler.hasNext()) {
-                                        enqueueNextUrl(linkDao);
-                                    }
-                                    dbHelper.close();
-                                } catch (SQLException e) {
-                                    Log.wtf(Constant.TAG, "Failed to access database", e);
-                                } finally {
-                                    lock.unlock();
-                                }
-
-                                if (mManager.isShuttingDown()) {
-                                    // Quit if manager is shutting done
-                                    mHandler.removeMessages(Constant.MSG_SPAWN_CRAWLERS);
-                                    return null;
-                                }
-
-                                mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, calcWaitTime());
-                                return null;
-                            }
-                        }.execute();
-                    } else {
-                        long waitTime = throttler.waitTime();
-                        if (waitTime < MIN_THREAD_SPAWN_WAIT) {
-                            waitTime = MIN_THREAD_SPAWN_WAIT;
+                        if (!mManager.isShuttingDown() && mManager.hasUnusedThreads() && throttler.hasNext()) {
+                            enqueueNextUrl(linkDao);
                         }
-                        mHandler.sendEmptyMessageDelayed(Constant.MSG_SPAWN_CRAWLERS, waitTime);
+                        dbHelper.close();
+                    } catch (SQLException e) {
+                        Log.wtf(Constant.TAG, "Failed to access database", e);
                     }
+                    waitTime = calcWaitTime();
+                } else {
+                     waitTime = throttler.waitTime();
                 }
+                if (waitTime < MIN_THREAD_SPAWN_WAIT) {
+                    waitTime = MIN_THREAD_SPAWN_WAIT;
+                }
+                TimeUnit.MILLISECONDS.sleep(waitTime);
+            }
+        } catch (InterruptedException e) {
+            Log.i(Constant.TAG, "Thread is canceled");
+        } finally {
+            shutdown = true;
+            mManager.cancelAllRunnable();
+        }
+    }
 
-               private long calcWaitTime() {
-                   long staticWaitTime = throttler.getStaticWaitTime();
-                   long waitTime = throttler.waitTime();
-                   if (waitTime < staticWaitTime) {
-                       waitTime = (waitTime + staticWaitTime)/2L;
-                   }
-                   if (waitTime < MIN_THREAD_SPAWN_WAIT) {
-                       waitTime = MIN_THREAD_SPAWN_WAIT;
-                   }
+    private long calcWaitTime() {
+        long staticWaitTime = throttler.getStaticWaitTime();
+        long waitTime = throttler.waitTime();
+        if (waitTime < staticWaitTime) {
+            waitTime = (waitTime + staticWaitTime)/2L;
+        }
+        if (waitTime < MIN_THREAD_SPAWN_WAIT) {
+            waitTime = MIN_THREAD_SPAWN_WAIT;
+        }
 
-                   return waitTime;
-               }
-
-
-
-    };
+        return waitTime;
+    }
 
     private void enqueueNextUrl(LinkDao linkDao) {
         String url = linkDao.removeNextAndCommit();
@@ -181,13 +175,22 @@ public class WebCrawler {
             } else {
                 linkDao.saveForced(url);
             }
+        } else {
+            Log.i(Constant.TAG, "Queue is empty, so refill it again");
+            if (startUrl == null) {
+                for (String defaultUrl : defaultStartPages) {
+                    linkDao.saveAndCommit(defaultUrl);
+                }
+            } else {
+                linkDao.saveAndCommit(startUrl);
+            }
         }
     }
 
     private void enqueueUrl(String url) {
         final LinkExtractor extractor = new StreamExtractor(configuration);
         CrawlerImpl crawler = new CrawlerImpl(dbHelperFactory, extractor, httpClientFactory, configuration);
-        CrawlerRunner crawlerRunner = new CrawlerRunner(crawler, url, callback, mHandler);
+        CrawlerRunner crawlerRunner = new CrawlerRunner(crawler, url, callback);
         mManager.addToCrawlingQueue(crawlerRunner);
     }
 }

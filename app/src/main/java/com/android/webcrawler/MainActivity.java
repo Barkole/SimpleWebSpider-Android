@@ -19,8 +19,8 @@ import com.android.webcrawler.dao.mem.MemDbHelperFactory;
 public class MainActivity extends Activity implements OnClickListener {
 
 	private static final int DEFAULT_THROTTLE = 4;
-	private static final int REFRESH_DELAY = 250;
-	private static final int MAX_THROTTLE = 60_000/500;
+	private static final int MAX_THROTTLE = 60_000;
+	private static final long REFRESH_MIN_DELAY = 500;
 
 	private LinearLayout crawlingInfo;
 	private Button startButton;
@@ -29,7 +29,7 @@ public class MainActivity extends Activity implements OnClickListener {
 	private TextView progressText;
 
 	private volatile WebCrawler crawler;
-	private volatile String lastUrl;
+	private volatile long lastRefresh;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -100,14 +100,26 @@ public class MainActivity extends Activity implements OnClickListener {
 		final CrawlingCallback callback = new CrawlingCallback() {
 			@Override
 			public void onPageCrawlingCompleted(String url) {
-				lastUrl = url;
-				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
+				updateProgressText(url);
 			}
 
 			@Override
 			public void onPageCrawlingFailed(String url, int errorCode) {
-				lastUrl = url;
-				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
+				updateProgressText(url);
+			}
+
+			private void updateProgressText(final String url) {
+				long currentTimeMillis = System.currentTimeMillis();
+				if (currentTimeMillis - lastRefresh > REFRESH_MIN_DELAY) {
+					lastRefresh = currentTimeMillis;
+					progressText.post(new Runnable() {
+						@Override
+						public void run() {
+							progressText.setText(url);
+
+						}
+					});
+				}
 			}
 
 			@Override
@@ -133,40 +145,19 @@ public class MainActivity extends Activity implements OnClickListener {
 		}.execute();
 	}
 
-	private Handler resetHandler = new Handler() {
-		public void handleMessage(android.os.Message msg) {
-			stopCrawling();
-			startCrawling();
-		};
-	};
-
-	private Handler updateTextHandler = new Handler() {
-		public void handleMessage(android.os.Message msg) {
-			updateTextHandler.removeMessages(Constant.MSG_UPDATE_INFO);
-			progressText.post(new Runnable() {
-				@Override
-				public void run() {
-					progressText.setText(lastUrl);
-
-				}
-			});
-		};
-	};
-
 	/**
 	 * API to handle post crawling events
 	 */
 	private void stopCrawling() {
-		if (crawler == null) {
-			return;
-		}
 		WebCrawler oldCrawler = crawler;
 		crawler = null;
 
-		updateTextHandler.removeMessages(Constant.MSG_UPDATE_INFO);
+		if (oldCrawler == null) {
+			return;
+		}
+		progressText.setText("Stopping...");
 		oldCrawler.stopCrawlerTasks();
 
-		progressText.setText("Stopping...");
 		crawlingInfo.setVisibility(View.INVISIBLE);
 		startButton.setText("Start Crawling");
 	}

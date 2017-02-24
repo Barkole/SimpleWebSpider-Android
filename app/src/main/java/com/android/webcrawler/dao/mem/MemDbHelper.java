@@ -13,11 +13,9 @@ import java.sql.SQLException;
 class MemDbHelper implements DbHelper {
 
     private final MemDbHelperFactory memDbHelperFactory;
-    private final int maxLength;
 
-    public MemDbHelper(MemDbHelperFactory memDbHelperFactory, int maxLength) {
+    public MemDbHelper(MemDbHelperFactory memDbHelperFactory) {
         this.memDbHelperFactory = memDbHelperFactory;
-        this.maxLength = maxLength;
     }
 
     @Override
@@ -37,7 +35,7 @@ class MemDbHelper implements DbHelper {
 
     @Override
     public LinkDao getLinkDao() {
-        return new MemLinkDao(this, maxLength);
+        return new MemLinkDao(this);
     }
 
     @Override

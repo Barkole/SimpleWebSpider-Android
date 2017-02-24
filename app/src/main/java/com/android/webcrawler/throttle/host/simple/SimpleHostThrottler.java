@@ -40,10 +40,10 @@ import java.util.concurrent.locks.ReentrantLock;
 public class SimpleHostThrottler implements HostThrottler {
 
 	private static String					HOST_THROTTLER_HOSTS_AT_ONCE					= "throttler.host.hosts-at-once";
-	private static int						HOST_THROTTLER_HOSTS_AT_ONCE_DEFAULT			= 20;
+	private static int						HOST_THROTTLER_HOSTS_AT_ONCE_DEFAULT			= 100;
 
 	private static String					HOST_THROTTLER_HOSTS_MAX_SIZE					= "throttler.host.hosts-max-size";
-	private static int						HOST_THROTTLER_HOSTS_MAX_SIZE_DEFAULT			= 1024;
+	private static int						HOST_THROTTLER_HOSTS_MAX_SIZE_DEFAULT			= 10*1024;
 
 	private static String					HOST_THROTTLER_HOSTS_MAX_AGE_SECONDS			= "throttler.host.hosts-max-age-seconds";
 	private static int						HOST_THROTTLER_HOSTS_MAX_AGE_SECONDS_DEFAULT	= 60 * 60;
@@ -96,6 +96,10 @@ public class SimpleHostThrottler implements HostThrottler {
 	public String getBestFittingString(final List<String> urls) {
 		lock.lock();
 		try {
+			if (urls == null || urls.isEmpty()) {
+				return null;
+			}
+
 			// Required for internal algorithm
 			final List<SimpleUrl> simpleUrls = new ArrayList<SimpleUrl>(urls.size());
 			// Used to ensure return the exactly same String object
@@ -109,6 +113,11 @@ public class SimpleHostThrottler implements HostThrottler {
 				} catch (final MalformedURLException e) {
 					Log.w(Constant.TAG, "Ignore not valid url " + url + ": " + e);
 				}
+			}
+
+			if (simpleUrls.isEmpty()) {
+				// So we remove the malformed URLs from queue
+				return urls.get(0);
 			}
 
 			final SimpleUrl bestFitting = getBestFittingSimpleUrl(simpleUrls);

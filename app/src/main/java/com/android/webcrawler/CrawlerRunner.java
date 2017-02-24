@@ -29,26 +29,30 @@ public class CrawlerRunner implements Runnable {
 	private final Crawler crawler;
 	private final String	url;
 	private final CrawlingCallback callback;
-	private Handler handler;
 
-	public CrawlerRunner(final Crawler crawler, final String url, CrawlingCallback callback, Handler handler) {
+	public CrawlerRunner(final Crawler crawler, final String url, CrawlingCallback callback) {
 		ValidityHelper.checkNotNull("crawler", crawler);
 		ValidityHelper.checkNotEmpty("url", url);
 		ValidityHelper.checkNotNull("callback", callback);
-		ValidityHelper.checkNotNull("handler", handler);
 
 		this.crawler = crawler;
 		this.url = url;
 		this.callback = callback;
-		this.handler = handler;
 	}
 
 	@Override
 	public void run() {
 		Log.d(Constant.TAG, String.format("Start task [url=%s]", url));
-		Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
-		callback.onPageCrawlingCompleted(url);
-		this.crawler.crawl(url);
+		try {
+			Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
+			this.crawler.crawl(url);
+			callback.onPageCrawlingCompleted(url);
+		} catch (Throwable e) {
+			Log.wtf(Constant.TAG, String.format("Failed task [url=%s]", url), e);
+			callback.onPageCrawlingFailed(url, -1);
+		} finally {
+			Log.d(Constant.TAG, String.format("Finished task [url=%s]", url));
+		}
 	}
 
 }

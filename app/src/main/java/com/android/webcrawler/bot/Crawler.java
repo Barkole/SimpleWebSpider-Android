@@ -20,6 +20,6 @@ package com.android.webcrawler.bot;
 
 public interface Crawler {
 
-	public abstract void crawl(final String baseUrl);
+	void crawl(final String baseUrl);
 
 }

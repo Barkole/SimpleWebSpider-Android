@@ -17,14 +17,10 @@ import java.util.Random;
 
 class MemLinkDao implements LinkDao {
     private final MemDbHelper memDbHelper;
-    private final int maxLength;
-    private final Random random;
 
 
-    public MemLinkDao(MemDbHelper memDbHelper, int maxLength) {
+    public MemLinkDao(MemDbHelper memDbHelper) {
         this.memDbHelper = memDbHelper;
-        this.maxLength = maxLength;
-        this.random = new Random();
     }
 
     @Override
@@ -45,7 +41,9 @@ class MemLinkDao implements LinkDao {
                 // no more available
                 break;
             }
-            urls.add(url);
+            if (url.length() != 0 ) {
+                urls.add(url);
+            }
         }
 
         // If list is empty, there is none URL that could be loaded
@@ -55,9 +53,11 @@ class MemLinkDao implements LinkDao {
 
         // Get the best URL
         final String nextUrlString = hostThrottler.getBestFittingString(urls);
+        if (nextUrlString != null) {
+            urls.remove(nextUrlString);
+        }
 
         // Put remaining urls back to queue
-        urls.remove(nextUrlString);
         queue.addAll(urls);
 
 
@@ -66,11 +66,7 @@ class MemLinkDao implements LinkDao {
 
     @Override
     public void saveAndCommit(String link) {
-        if (link != null && link.length() <= maxLength) {
-            saveForced(link);
-        } else {
-            Log.i(Constant.TAG, String.format("Ignoring too long URL [link=%s]", link));
-        }
+        saveForced(link);
     }
 
     @Override
