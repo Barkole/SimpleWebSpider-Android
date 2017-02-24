@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class WebCrawler {
 
-    private static final long MIN_THREAD_SPAWN_WAIT = 10L;
+    private static final long MIN_THREAD_SPAWN_WAIT = 100L;
 
     private final Context mContext;
     private final SimpleHostThrottler hostThrottler;
@@ -68,32 +68,39 @@ public class WebCrawler {
     }
 
     public void start(final String url) {
-        Log.i(Constant.TAG, "Start crawler");
-        long firstWaitTime = MIN_THREAD_SPAWN_WAIT;
-        try {
-            shutdown = false;
-            startUrl = url;
-            DbHelper dbHelper = dbHelperFactory.buildDbHelper();
-            LinkDao linkDao = dbHelper.getLinkDao();
+        this.shutdown = false;
+        new AsyncTask<Object, Object, Object>() {
 
-            if (url == null) {
-                for (String defaultUrl : defaultStartPages) {
-                    // XXX Add to already done list
-                    linkDao.saveAndCommit(defaultUrl);
-                    linkDao.removeNextAndCommit();
+            @Override
+            protected Object doInBackground(Object... params) {
+                Log.i(Constant.TAG, "Start crawler");
+                long firstWaitTime = MIN_THREAD_SPAWN_WAIT;
+                try {
+                    startUrl = url;
+                    DbHelper dbHelper = dbHelperFactory.buildDbHelper();
+                    LinkDao linkDao = dbHelper.getLinkDao();
+
+                    if (url == null) {
+                        for (String defaultUrl : defaultStartPages) {
+                            // XXX Add to already done list
+                            linkDao.saveAndCommit(defaultUrl);
+                            linkDao.removeNextAndCommit();
+                        }
+                        for (String defaultUrl : defaultStartPages) {
+                            enqueueUrl(defaultUrl);
+                        }
+                        firstWaitTime += throttler.getStaticWaitTime();
+                    } else {
+                        linkDao.saveAndCommit(url);
+                    }
+                } catch (SQLException e) {
+                    Log.e(Constant.TAG, "Failed to prefill database", e);
+                } finally {
+                    run(firstWaitTime);
                 }
-                for (String defaultUrl : defaultStartPages) {
-                    enqueueUrl(defaultUrl);
-                }
-                firstWaitTime += throttler.getStaticWaitTime();
-            } else {
-                linkDao.saveAndCommit(url);
+                return null;
             }
-        } catch (SQLException e) {
-            Log.e(Constant.TAG, "Failed to prefill database", e);
-        } finally {
-            run(firstWaitTime);
-        }
+        }.execute();
     }
 
     /**
@@ -121,7 +128,7 @@ public class WebCrawler {
 
     private void run(long firstWaitTime) {
         try {
-            Process.setThreadPriority(Process.THREAD_PRIORITY_LOWEST);
+            Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
             TimeUnit.MILLISECONDS.sleep(firstWaitTime);
             while (!shutdown && !mManager.isShuttingDown()) {
                 long waitTime;

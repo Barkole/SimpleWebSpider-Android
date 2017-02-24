@@ -34,9 +34,9 @@ public class RunnableManager {
 
     public RunnableManager(Configuration configuration) {
         maxPoolSize = determineMaxPoolSize(configuration);
-        int startSize = maxPoolSize/2;
         mCrawlingQueue = new LinkedBlockingQueue<>(maxPoolSize);
-        mCrawlingThreadPool = new ThreadPoolExecutor(startSize,
+        // Both core and max pool size limits the max thread running in parallel! So use same value!
+        mCrawlingThreadPool = new ThreadPoolExecutor(maxPoolSize,
                 maxPoolSize, KEEP_ALIVE_TIME, KEEP_ALIVE_TIME_UNIT,
                 mCrawlingQueue);
     }
