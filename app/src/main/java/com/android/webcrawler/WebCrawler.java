@@ -27,7 +27,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class WebCrawler {
 
-    private static final long MIN_THREAD_SPAWN_WAIT = 100L;
+    private static final long MIN_THREAD_SPAWN_WAIT = 250L;
 
     private final Context mContext;
     private final SimpleHostThrottler hostThrottler;
@@ -48,29 +48,9 @@ public class WebCrawler {
     }
     private final Configuration configuration;
 
-    private volatile String lastFinishedUrl = "Pending...";
-    final private AtomicLong crawledUrlCount = new AtomicLong();
-
     public WebCrawler(Context ctx, int throttle, Configuration configuration, final CrawlingCallback callback) {
         this.mContext = ctx;
-        this.callback = new CrawlingCallback() {
-            @Override
-            public void onPageCrawlingCompleted(String url) {
-                lastFinishedUrl = url;
-                crawledUrlCount.incrementAndGet();
-                callback.onPageCrawlingCompleted(url);
-            }
-
-            @Override
-            public void onPageCrawlingFailed(String url, int errorCode) {
-                callback.onPageCrawlingFailed(url, errorCode);
-            }
-
-            @Override
-            public void onPageCrawlingFinished() {
-                callback.onPageCrawlingFinished();
-            }
-        };
+        this.callback = callback;
         this.configuration = configuration;
 
         throttler = new LimitThroughPut(throttle);
@@ -209,13 +189,5 @@ public class WebCrawler {
         CrawlerImpl crawler = new CrawlerImpl(dbHelperFactory, extractor, httpClientFactory, configuration);
         CrawlerRunner crawlerRunner = new CrawlerRunner(crawler, url, callback, mHandler);
         mManager.addToCrawlingQueue(crawlerRunner);
-    }
-
-    public String getLastUrl() {
-        return lastFinishedUrl;
-    }
-
-    public long getCrawledCount() {
-        return crawledUrlCount.get();
     }
 }

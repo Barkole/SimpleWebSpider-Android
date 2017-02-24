@@ -24,10 +24,10 @@ import java.util.List;
 
 public interface HostThrottler {
 
-	public abstract int getUrlsAtOnce();
+	int getUrlsAtOnce();
 
-	public abstract String getBestFittingString(final List<String> urls);
+	String getBestFittingString(final List<String> urls);
 
-	public abstract SimpleUrl getBestFittingSimpleUrl(final List<SimpleUrl> urls);
+	SimpleUrl getBestFittingSimpleUrl(final List<SimpleUrl> urls);
 
 }
