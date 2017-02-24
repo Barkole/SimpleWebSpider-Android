@@ -21,7 +21,9 @@ import static java.lang.String.format;
 
 public class MemDbHelperFactory implements DbHelperFactory {
 
-    private static final int QUEUE_SIZE = 100*1024;
+    public static final String KEY_QUEUE_SIZE = "database.mem.queue.size";
+    private static final int DFLT_QUEUE_SIZE = 10*1_024;
+
 
     private final Configuration configuration;
     volatile HostThrottler hostThrottler;
@@ -30,7 +32,8 @@ public class MemDbHelperFactory implements DbHelperFactory {
     public MemDbHelperFactory(final Configuration configuration, final HostThrottler hostThrottler) {
         this.configuration = configuration;
         this.hostThrottler = hostThrottler;
-        this.queue = new FixedSizeSet<>(QUEUE_SIZE);
+        int size = configuration.getInt(KEY_QUEUE_SIZE, DFLT_QUEUE_SIZE);
+        this.queue = new FixedSizeSet<>(size);
     }
 
     @Override

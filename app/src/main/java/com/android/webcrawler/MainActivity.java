@@ -18,6 +18,9 @@ import com.android.webcrawler.dao.mem.MemDbHelperFactory;
 
 public class MainActivity extends Activity implements OnClickListener {
 
+	private static final int DEFAULT_QUEUE_SIZE = 100*1024;
+	private static final int MIN_QUEUE_SIZE = 128;
+
 	private static final int DEFAULT_THROTTLE = 4;
 	private static final int MAX_THROTTLE = 60_000;
 	private static final long REFRESH_MIN_DELAY = 500;
@@ -25,9 +28,10 @@ public class MainActivity extends Activity implements OnClickListener {
 	private LinearLayout crawlingInfo;
 	private Button startButton;
 	private EditText urlInputView;
+	private EditText queueSizeInputView;
 	private EditText throttleInputView;
-	private TextView progressText;
 
+	private TextView progressText;
 	private volatile WebCrawler crawler;
 	private volatile long lastRefresh;
 
@@ -39,6 +43,7 @@ public class MainActivity extends Activity implements OnClickListener {
 		crawlingInfo = (LinearLayout) findViewById(R.id.crawlingInfo);
 		startButton = (Button) findViewById(R.id.start);
 		urlInputView = (EditText) findViewById(R.id.webUrl);
+		queueSizeInputView = (EditText) findViewById(R.id.queueSize);
 		throttleInputView = (EditText) findViewById(R.id.throttle);
 		progressText = (TextView) findViewById(R.id.progressText);
 	}
@@ -87,11 +92,28 @@ public class MainActivity extends Activity implements OnClickListener {
 			throttle = MAX_THROTTLE;
 		}
 
+		int queueSize;
+		String queueSizeText = queueSizeInputView.getText().toString();
+		if (TextUtils.isEmpty(queueSizeText)) {
+			queueSize = DEFAULT_QUEUE_SIZE;
+		} else {
+			try {
+				queueSize = Integer.parseInt(queueSizeText);
+			} catch (Exception e) {
+				Log.wtf(Constant.TAG, String.format("Failed to parse [queueSizeText=%s]", queueSizeText), e);
+				queueSize = Integer.MAX_VALUE;
+			}
+		}
+		if (queueSize<MIN_QUEUE_SIZE) {
+			queueSize = MIN_QUEUE_SIZE;
+		}
+
 		startButton.setText("Stop Crawling");
 		progressText.setText("Running...");
 		crawlingInfo.setVisibility(View.VISIBLE);
 
 		Configuration configuration = new Configuration();
+		configuration.putInt(MemDbHelperFactory.KEY_QUEUE_SIZE, queueSize);
 		startCrawler(webUrl, throttle, configuration );
 	}
 
@@ -156,10 +178,9 @@ public class MainActivity extends Activity implements OnClickListener {
 			return;
 		}
 		progressText.setText("Stopping...");
-		oldCrawler.stopCrawlerTasks();
-
 		crawlingInfo.setVisibility(View.INVISIBLE);
 		startButton.setText("Start Crawling");
+		oldCrawler.stopCrawlerTasks();
 	}
 
 }
