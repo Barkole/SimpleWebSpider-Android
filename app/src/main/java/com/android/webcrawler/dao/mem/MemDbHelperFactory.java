@@ -21,72 +21,27 @@ import static java.lang.String.format;
 
 public class MemDbHelperFactory implements DbHelperFactory {
 
-    private static final long MIN_REMAINING_HEAP = 10*1024*1024;
-    private static final long MAX_QUEUE_REQUIRED_HEAP = 20*1024*1024;
+    private static final int QUEUE_SIZE = 40_000;
+    private static final int MAX_LENGTH = 256;
 
     private final Configuration configuration;
     volatile HostThrottler hostThrottler;
     volatile SimpleSet<String> queue;
-    volatile SimpleSet<String> hashes;
 
     public MemDbHelperFactory(final Configuration configuration, final HostThrottler hostThrottler) {
         this.configuration = configuration;
         this.hostThrottler = hostThrottler;
-        int maxSize = determineMaxSize();
-        Log.i(Constant.TAG, format("Queue size determined [size=%s]", maxSize));
-        this.queue = new FixedSizeSet<>(maxSize, "queue");
-        this.hashes = new FixedSizeSet<>(maxSize, "hashes");
+        this.queue = new FixedSizeSet<>(QUEUE_SIZE);
     }
 
     @Override
     public DbHelper buildDbHelper() throws SQLException {
-        return new MemDbHelper(this);
+        return new MemDbHelper(this, MAX_LENGTH);
     }
 
     void shutdown() {
         this.queue = null;
-        this.hashes = null;
         this.hostThrottler = null;
     }
-
-    private static int determineMaxSize() {
-        long i = 0;
-        long startRemaining = remainingMemory();
-        try {
-            List<String> hashes = new LinkedList<>();
-            List<String> urls = new LinkedList<>();
-            for (; i <= Integer.MAX_VALUE ; i++) {
-                hashes.add(format("%032d", i));
-                urls.add(format("%0256d", i));
-                if (reachedLimit(startRemaining)) {
-                    return (int) (i);
-                }
-            }
-        } catch (Throwable e) {
-            // reached max size
-            return (int) (i/2);
-        }
-
-        return Integer.MAX_VALUE/2;
-    }
-
-    private static long remainingMemory() {
-        Runtime rt = Runtime.getRuntime();
-        long max = rt.maxMemory(); //the maximum memory the app can use
-        long heapSize = rt.totalMemory(); //current heap size
-        long heapRemaining = rt.freeMemory(); //amount available in heap
-        long nativeUsage = Debug.getNativeHeapAllocatedSize(); //is this right? I only want to account for native memory that my app is being "charged" for.  Is this the proper way to account for that?
-
-//heapSize - heapRemaining = heapUsed + nativeUsage = totalUsage
-        long remaining = max - (heapSize - heapRemaining + nativeUsage);
-        return remaining;
-    }
-
-    private static boolean reachedLimit(long startRemaining) {
-        long remaining = remainingMemory();
-
-        return (remaining < MIN_REMAINING_HEAP) || (startRemaining - remaining > MAX_QUEUE_REQUIRED_HEAP);
-    }
-
 
 }

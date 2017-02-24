@@ -19,15 +19,13 @@ class FixedSizeSet<E>  implements SimpleSet<E> {
     private final int maxSize;
     private final Set<E> set = new LinkedHashSet<>();
     private final Random rnd = new Random();
-    private final String label;
     private long exceededCount = 0;
 
     // use ReentrantLock instead of synchronized for scalability
     private final ReentrantLock lock;
 
-    public FixedSizeSet(int maxSize, String label) {
+    public FixedSizeSet(int maxSize) {
         this.maxSize = maxSize;
-        this.label = label;
         this.lock = new ReentrantLock(false);
     }
 
@@ -60,12 +58,12 @@ class FixedSizeSet<E>  implements SimpleSet<E> {
         try {
             if (set.size() >= maxSize) {
                 if (++exceededCount >= 1_000) {
-                    Log.d(Constant.TAG, String.format("Queue has limit exceeded: Remove one random [label=%s, size=%s, maxSize=%s]", label, set.size(), maxSize));
+                    Log.d(Constant.TAG, String.format("Queue has limit exceeded: Remove one random [size=%s, maxSize=%s]", set.size(), maxSize));
                     exceededCount = 0;
                 }
                 remove();
             } else if ((set.size()) % 1_000 == 0){
-                Log.d(Constant.TAG, String.format("Queue added new element [label=%s, size=%s, maxSize=%s]", label, set.size(), maxSize));
+                Log.d(Constant.TAG, String.format("Queue added new element [size=%s, maxSize=%s]", set.size(), maxSize));
             }
             return set.add(e);
         } finally {

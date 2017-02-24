@@ -18,19 +18,18 @@ import com.android.webcrawler.dao.mem.MemDbHelperFactory;
 
 public class MainActivity extends Activity implements OnClickListener {
 
+	private static final int DEFAULT_THROTTLE = 4;
+	private static final int REFRESH_DELAY = 250;
+	private static final int MAX_THROTTLE = 60_000/500;
+
 	private LinearLayout crawlingInfo;
 	private Button startButton;
 	private EditText urlInputView;
-	private EditText resetTimeInputView;
 	private EditText throttleInputView;
 	private TextView progressText;
 
 	private volatile WebCrawler crawler;
-	private static final long HOUR_IN_MS = 60*60*1_000;
-	private static final long DEFAULT_RESET_TIME = 0;
-	private static final int DEFAULT_THROTTLE = 4;
-	private static final int REFRESH_DELAY = 256;
-
+	private volatile String lastUrl;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +39,6 @@ public class MainActivity extends Activity implements OnClickListener {
 		crawlingInfo = (LinearLayout) findViewById(R.id.crawlingInfo);
 		startButton = (Button) findViewById(R.id.start);
 		urlInputView = (EditText) findViewById(R.id.webUrl);
-		resetTimeInputView = (EditText) findViewById(R.id.resetTime);
 		throttleInputView = (EditText) findViewById(R.id.throttle);
 		progressText = (TextView) findViewById(R.id.progressText);
 	}
@@ -72,19 +70,6 @@ public class MainActivity extends Activity implements OnClickListener {
 			webUrl = null;
 		}
 
-		long resetTime;
-		String resetTimeText = resetTimeInputView.getText().toString();
-		if (TextUtils.isEmpty(resetTimeText)) {
-			resetTime = DEFAULT_RESET_TIME;
-		} else {
-			try {
-				resetTime = Long.parseLong(resetTimeText) * HOUR_IN_MS;
-			} catch (Exception e) {
-				Log.wtf(Constant.TAG, String.format("Failed to parse [resetTimeText=%s]", resetTimeText), e);
-				resetTime = 356 * 24 * HOUR_IN_MS;
-			}
-		}
-
 		int throttle;
 		String throttleText = throttleInputView.getText().toString();
 		if (TextUtils.isEmpty(throttleText)) {
@@ -94,19 +79,17 @@ public class MainActivity extends Activity implements OnClickListener {
 				throttle = Integer.parseInt(throttleText);
 			} catch (Exception e) {
 				Log.wtf(Constant.TAG, String.format("Failed to parse [throttleText=%s]", throttleText), e);
-				throttle = 500_000;
+				throttle = MAX_THROTTLE;
 			}
+		}
+		if (throttle > MAX_THROTTLE) {
+			Log.w(Constant.TAG, String.format("Throttle value is to high, set maximum value [throttle=%s, MAX_THROTTLE=%s]", throttle, MAX_THROTTLE));
+			throttle = MAX_THROTTLE;
 		}
 
 		startButton.setText("Stop Crawling");
 		progressText.setText("Running...");
 		crawlingInfo.setVisibility(View.VISIBLE);
-
-		if (resetTime > 0) {
-			// Send delayed message to resetHandler for restarting crawling
-			resetHandler.sendEmptyMessageDelayed(Constant.MSG_RESTART_CRAWLING, resetTime);
-		}
-		updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
 
 		Configuration configuration = new Configuration();
 		startCrawler(webUrl, throttle, configuration );
@@ -117,17 +100,26 @@ public class MainActivity extends Activity implements OnClickListener {
 		final CrawlingCallback callback = new CrawlingCallback() {
 			@Override
 			public void onPageCrawlingCompleted(String url) {
+				lastUrl = url;
 				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
 			}
 
 			@Override
 			public void onPageCrawlingFailed(String url, int errorCode) {
+				lastUrl = url;
 				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
 			}
 
 			@Override
 			public void onPageCrawlingFinished() {
-				updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
+				new AsyncTask<Object, Object, Object>() {
+					@Override
+					protected Object doInBackground(Object... params) {
+						stopCrawling();
+						startCrawling();
+						return null;
+					}
+				}.execute();
 			}
 		};
 
@@ -151,24 +143,13 @@ public class MainActivity extends Activity implements OnClickListener {
 	private Handler updateTextHandler = new Handler() {
 		public void handleMessage(android.os.Message msg) {
 			updateTextHandler.removeMessages(Constant.MSG_UPDATE_INFO);
-			WebCrawler currentCrawler = crawler;
-			if (currentCrawler == null) {
-				return;
-			}
-
-			final String url = currentCrawler.getLastUrl();
-			final long count = currentCrawler.getCrawledCount();
-
 			progressText.post(new Runnable() {
-
 				@Override
 				public void run() {
-					progressText.setText(String.format("%s pages\n %s", count, url));
+					progressText.setText(lastUrl);
 
 				}
 			});
-
-			updateTextHandler.sendEmptyMessageDelayed(Constant.MSG_UPDATE_INFO, REFRESH_DELAY);
 		};
 	};
 
@@ -182,7 +163,6 @@ public class MainActivity extends Activity implements OnClickListener {
 		WebCrawler oldCrawler = crawler;
 		crawler = null;
 
-		resetHandler.removeMessages(Constant.MSG_RESTART_CRAWLING);
 		updateTextHandler.removeMessages(Constant.MSG_UPDATE_INFO);
 		oldCrawler.stopCrawlerTasks();
 

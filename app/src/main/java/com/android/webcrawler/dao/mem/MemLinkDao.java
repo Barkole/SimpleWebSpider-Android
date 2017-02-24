@@ -1,8 +1,10 @@
 package com.android.webcrawler.dao.mem;
 
+import android.util.Log;
+
+import com.android.webcrawler.Constant;
 import com.android.webcrawler.dao.LinkDao;
 import com.android.webcrawler.throttle.host.HostThrottler;
-import com.android.webcrawler.util.MD5;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,11 +17,13 @@ import java.util.Random;
 
 class MemLinkDao implements LinkDao {
     private final MemDbHelper memDbHelper;
+    private final int maxLength;
     private final Random random;
 
 
-    public MemLinkDao(MemDbHelper memDbHelper) {
+    public MemLinkDao(MemDbHelper memDbHelper, int maxLength) {
         this.memDbHelper = memDbHelper;
+        this.maxLength = maxLength;
         this.random = new Random();
     }
 
@@ -62,8 +66,10 @@ class MemLinkDao implements LinkDao {
 
     @Override
     public void saveAndCommit(String link) {
-        if (addHash(link)) {
+        if (link != null && link.length() <= maxLength) {
             saveForced(link);
+        } else {
+            Log.i(Constant.TAG, String.format("Ignoring too long URL [link=%s]", link));
         }
     }
 
@@ -71,11 +77,5 @@ class MemLinkDao implements LinkDao {
     public void saveForced(String link) {
         SimpleSet<String> queue = memDbHelper.getQueue();
         queue.put(link);
-    }
-
-    private boolean addHash(final String url) {
-        SimpleSet<String> hashes = memDbHelper.getHashes();
-        String md5 = MD5.encodeString(url, MD5.UTF8);
-        return hashes.put(md5);
     }
 }
