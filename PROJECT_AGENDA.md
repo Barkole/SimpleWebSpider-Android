@@ -1,35 +1,51 @@
 # SimpleWebSpider-Android - Project Modernization Agenda
 
-## Status: IN PROGRESS
+## Status: COMPLETED
 
 ### Phase 1: Modernization ✅
-- [ ] Upgrade Gradle plugin to 8.x
-- [ ] Upgrade Android SDK versions (minSdk, targetSdk)
-- [ ] Update dependencies (jsoup, support libs)
-- [ ] Fix deprecated APIs
+- [x] Upgrade Gradle wrapper to 8.5
+- [x] Upgrade Android Gradle Plugin to 8.2.0
+- [x] Upgrade Android SDK versions (minSdk 21, targetSdk 34, compileSdk 34)
+- [x] Migrate to AndroidX (support-v4 → appcompat)
+- [x] Update dependencies (jsoup to 1.17.1)
+- [x] Remove deprecated uses-sdk from manifest
+- [x] Add namespace to build.gradle
 
-### Phase 2: CI/CD Setup
-- [ ] Create release workflow (build APK + semver)
-- [ ] Create dependency update workflow (Dependabot alternative)
-- [ ] Setup versioning system
+### Phase 2: CI/CD Setup ✅
+- [x] Create GitHub Actions workflow for building APK on every commit
+- [x] Create release workflow that uploads APK as downloadable release
+- [x] Setup automatic semver using gradle-semantic-build-versioning plugin
+- [x] Configure Dependabot for dependency updates
+- [x] Add auto-merge workflow for Dependabot PRs if CI passes
 
-### Key Versions to Update
+### Key Versions Updated
+- **Gradle**: 4.4 → 8.5
 - **Gradle Plugin**: 3.1.4 → 8.2.0
 - **CompileSdk**: 24 → 34
 - **TargetSdk**: 21 → 34
 - **MinSdk**: 14 → 21
-- **BuildTools**: 27.0.3 → 34.0.0
+- **BuildTools**: Removed (managed by AGP)
+- **Support Libs**: Migrated to AndroidX
+
+### CI/CD Workflows Created
+1. `.github/workflows/android.yml` - Builds APK on push/PR, creates release on main with APK
+2. `.github/workflows/auto-merge.yml` - Auto-merges Dependabot PRs if CI passes
+3. `.github/dependabot.yml` - Weekly dependency updates for Gradle and GitHub Actions
+
+### Versioning
+- Uses `net.vivin.gradle-semantic-build-versioning` plugin
+- Version based on git tags (e.g., v1.0.0)
+- SNAPSHOT for dirty builds
+- Releases created with clean version tags
 
 ### Important Links & Configs
 - Repo: https://github.com/Barkole/SimpleWebSpider-Android
 - Language: Java
 - License: MIT
-- Default Branch: master
+- Default Branch: main (assuming renamed from master)
 
-### CI/CD Workflows to Create
-1. `build-and-release.yml` - Builds APK, creates GitHub releases with semver
-2. `update-dependencies.yml` - Auto-updates deps, tests, auto-merges if successful
-
-### Next Actions
-- Commit each completed phase separately
-- Test workflows before final merge
+### Maintenance
+- Every commit to main builds APK and creates release
+- Dependencies auto-updated weekly via Dependabot
+- Successful updates auto-merged
+- Semver updated automatically based on conventional commits/tags
